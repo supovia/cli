@@ -17,7 +17,7 @@ Requires Node.js 18 or newer.
 ## Quick start
 
 ```bash
-supovia login            # opens the browser to authorize the CLI
+supovia login            # browser session or API key — your choice
 supovia websites list    # your support workspaces with their ids
 supovia conversations list -n 5
 ```
@@ -41,12 +41,52 @@ messages, documentation, or third-party tools.
 
 ## Authentication
 
-`supovia login` starts a temporary localhost server, opens your browser to
-app.supovia.com, and receives the session tokens on the redirect back. If the
-browser does not open, the login URL is printed so you can visit it by hand.
-Tokens are stored in `~/.supovia/`; `supovia logout` clears them. A command
-run without a valid session prints "Please login first" and starts the
-browser login on its own.
+There are two ways to authenticate, and one environment variable:
+
+```bash
+supovia login              # on a terminal, asks: browser or API key
+supovia login --browser    # browser flow via app.supovia.com
+supovia login --with-key   # masked prompt for an API key secret
+supovia logout             # clears the stored session and any stored key
+```
+
+`supovia login --browser` starts a temporary localhost server, opens your
+browser to app.supovia.com, and receives the session tokens on the redirect
+back. If the browser does not open, the login URL is printed so you can visit
+it by hand.
+
+`supovia login --with-key` prompts (masked) for an API key secret created in
+the Supovia dashboard, verifies it with one authenticated request, and stores
+it. The secret is never accepted as a command-line argument. New keys default
+to read-only scopes, so write commands need the matching write scope on the
+key — or a browser session.
+
+Alternatively export `SUPOVIA_API_KEY=<key secret>` and skip `login`
+entirely: the key is read from the environment at request time. Precedence
+when several credentials exist: stored browser session, then stored key, then
+the environment variable.
+
+Everything lands in `~/.supovia/`; `supovia logout` clears it (an exported
+`SUPOVIA_API_KEY` naturally stays in effect, and `logout` says so).
+
+Headless behavior is deterministic: with no credentials and no terminal, any
+command fails immediately with exit code 1 and instructions on stderr — the
+CLI never opens a browser from a non-interactive context. On a terminal, a
+command run without credentials starts the browser login on its own.
+
+## JSON output and errors
+
+Every list, get, read, and mutation subcommand accepts `--json`: plain,
+parseable `JSON.stringify` output on stdout with no colors. Mutations print a
+small result object such as `{ "ok": true, "updated": [...] }`.
+
+Errors go to stderr and set exit code 1 in both modes; with `--json` the
+error is a single-line JSON object (`{"error":{"message":"..."}}`) so stdout
+stays clean for parsing.
+
+`supovia schema` prints the whole command tree — subcommands, options,
+arguments — as JSON, and `supovia schema docs list` prints just that
+subtree. Use it to discover the surface without scraping `--help` text.
 
 ## Commands
 
@@ -58,8 +98,9 @@ formats a single record for the terminal.
 ### Session
 
 ```bash
-supovia login    # log in via browser; tokens land in ~/.supovia/
-supovia logout   # clear the stored session
+supovia login    # browser flow or API key prompt; lands in ~/.supovia/
+supovia logout   # clear the stored session and any stored key
+supovia schema   # the whole command tree as JSON
 ```
 
 ### Websites

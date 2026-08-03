@@ -1,22 +1,14 @@
 /* Copyright 2025 Supovia LLC */
-const commander = require('commander')
-const clearSession = require('./session/clearSession.js')
+const agentfirstLogoutCommand = require('@monorepool/agentfirst/logoutCommand.js')
+const session = require('./sessionStore.js')
 
-function logoutCommand() {
-  const command = new commander.Command('logout')
-  command.action(async () => {
-    try {
-      console.log('logout')
-
-      clearSession()
-
-      console.log('logged out')
-    } catch (error) {
-      console.log('error', error)
-    }
+// Clears the whole ~/.supovia/ store: browser tokens and any stored API key
+// secret. A SUPOVIA_API_KEY exported in the shell stays in effect — the
+// factory says so instead of silently staying authenticated.
+module.exports = function logoutCommand() {
+  return agentfirstLogoutCommand({
+    binaryName: 'supovia',
+    session,
+    envKeyName: 'SUPOVIA_API_KEY',
   })
-
-  return command
 }
-
-module.exports = logoutCommand

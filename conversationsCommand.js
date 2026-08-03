@@ -1,44 +1,101 @@
 /* Copyright 2025 Supovia LLC */
 const { inspect } = require('node:util')
 const commander = require('commander')
-const rehydrateSession = require('./session/rehydrateSession.js')
-const isLoggedInSession = require('./session/isLoggedInSession.js')
-const login = require('./login.js')
+const {
+  printJson,
+  withJson,
+  fail,
+} = require('@monorepool/agentfirst/output.js')
+const ensureAuth = require('./ensureAuth.js')
 const getConfig = require('./getConfig.js')
 const getConversations = require('@supovia/client/getConversations.js').default
 const getConversation = require('@supovia/client/getConversation.js').default
 const getMessages = require('@supovia/client/getMessages.js').default
 const updateConversation = require('@supovia/client/updateConversation.js').default
 
-async function ensureLoggedIn() {
-  await rehydrateSession()
-
-  if (!isLoggedInSession()) {
-    console.log('Please login first')
-    await login()
-    await rehydrateSession()
-  }
-}
-
 function conversationsCommand() {
   const command = new commander.Command('conversations')
   command.description('manage conversations')
 
   // supovia conversations list
-  command
-    .command('list')
-    .description('list conversations')
-    .option('--websiteId [websiteId]', 'website id')
-    .option('--customerId [customerId]', 'filter by customer id')
-    .option('-k, --key [key]', 'filter by key')
-    .option('-n, --limit [limit]', 'limit number of results')
-    .action(async options => {
-      try {
-        await ensureLoggedIn()
+  withJson(
+    command
+      .command('list')
+      .description('list conversations')
+      .option('--websiteId [websiteId]', 'website id')
+      .option('--customerId [customerId]', 'filter by customer id')
+      .option('-k, --key [key]', 'filter by key')
+      .option('-n, --limit [limit]', 'limit number of results'),
+  ).action(async options => {
+    const { json } = options
+    try {
+      await ensureAuth()
 
+      const config = getConfig()
+      const websiteId = options.websiteId || config?.websiteId
+
+      const parameters = {
+        sortField: 'lastEditTime',
+        sortDirection: 'DESC',
+        limit: options.limit || 10,
+      }
+      if (websiteId) parameters.websiteId = websiteId
+      if (options.customerId) parameters.customerId = options.customerId
+      if (options.key) parameters.key = options.key
+
+      const conversations = await getConversations(parameters)
+
+      if (json) {
+        printJson(conversations)
+      } else if (conversations.length === 0) {
+        console.log('No conversations found')
+      } else {
+        console.log(`Found ${conversations.length} conversation(s):`)
+        conversations.forEach((conv, index) => {
+          const lastMessage = conv.lastMessage ? conv.lastMessage.replace(/\n/g, ' ') : ''
+          const preview = lastMessage
+            ? ` - ${lastMessage.substring(0, 60)}${lastMessage.length > 60 ? '...' : ''}`
+            : ''
+          const name = conv.customerNickname || conv.customerId || conv._id
+          console.log(`${index + 1}. ${name}${preview} (${conv._id})`)
+        })
+      }
+    } catch (error) {
+      fail(error, { json })
+    }
+  })
+
+  // supovia conversations get [conversationId]
+  withJson(
+    command
+      .command('get [conversationId]')
+      .description('get conversations (raw JSON), or a single conversation by id')
+      .option('--websiteId [websiteId]', 'website id')
+      .option('--customerId [customerId]', 'filter by customer id')
+      .option('-k, --key [key]', 'filter by key')
+      .option('-n, --limit [limit]', 'limit number of results'),
+  ).action(async (conversationId, options) => {
+    const { json } = options
+    try {
+      await ensureAuth()
+
+      if (conversationId) {
+        const conversation = await getConversation(conversationId)
+
+        if (conversation) {
+          if (json) {
+            printJson(conversation)
+          } else {
+            console.log(inspect(conversation, { colors: true, depth: null }))
+          }
+        } else if (json) {
+          fail(new Error('Conversation not found'), { json })
+        } else {
+          console.log('Conversation not found')
+        }
+      } else {
         const config = getConfig()
         const websiteId = options.websiteId || config?.websiteId
-
         const parameters = {
           sortField: 'lastEditTime',
           sortDirection: 'DESC',
@@ -47,218 +104,233 @@ function conversationsCommand() {
         if (websiteId) parameters.websiteId = websiteId
         if (options.customerId) parameters.customerId = options.customerId
         if (options.key) parameters.key = options.key
-
         const conversations = await getConversations(parameters)
-
-        if (conversations.length === 0) {
-          console.log('No conversations found')
+        if (json) {
+          printJson(conversations)
         } else {
-          console.log(`Found ${conversations.length} conversation(s):`)
-          conversations.forEach((conv, index) => {
-            const lastMessage = conv.lastMessage ? conv.lastMessage.replace(/\n/g, ' ') : ''
-            const preview = lastMessage
-              ? ` - ${lastMessage.substring(0, 60)}${lastMessage.length > 60 ? '...' : ''}`
-              : ''
-            const name = conv.customerNickname || conv.customerId || conv._id
-            console.log(`${index + 1}. ${name}${preview} (${conv._id})`)
-          })
-        }
-      } catch (error) {
-        console.log('error', error)
-      }
-    })
-
-  // supovia conversations get [conversationId]
-  command
-    .command('get [conversationId]')
-    .description('get conversations (raw JSON), or a single conversation by id')
-    .option('--websiteId [websiteId]', 'website id')
-    .option('--customerId [customerId]', 'filter by customer id')
-    .option('-k, --key [key]', 'filter by key')
-    .option('-n, --limit [limit]', 'limit number of results')
-    .action(async (conversationId, options) => {
-      try {
-        await ensureLoggedIn()
-
-        if (conversationId) {
-          const conversation = await getConversation(conversationId)
-
-          if (conversation) {
-            console.log(inspect(conversation, { colors: true, depth: null }))
-          } else {
-            console.log('Conversation not found')
-          }
-        } else {
-          const config = getConfig()
-          const websiteId = options.websiteId || config?.websiteId
-          const parameters = {
-            sortField: 'lastEditTime',
-            sortDirection: 'DESC',
-            limit: options.limit || 10,
-          }
-          if (websiteId) parameters.websiteId = websiteId
-          if (options.customerId) parameters.customerId = options.customerId
-          if (options.key) parameters.key = options.key
-          const conversations = await getConversations(parameters)
           console.log(inspect(conversations, { colors: true, depth: null }))
         }
-      } catch (error) {
-        console.log('error', error)
       }
-    })
+    } catch (error) {
+      fail(error, { json })
+    }
+  })
 
   // supovia conversations read <conversationId>
-  command
-    .command('read <conversationId>')
-    .description('read a conversation formatted for the terminal')
-    .action(async conversationId => {
-      try {
-        await ensureLoggedIn()
+  withJson(
+    command
+      .command('read <conversationId>')
+      .description('read a conversation formatted for the terminal'),
+  ).action(async (conversationId, options) => {
+    const { json } = options
+    try {
+      await ensureAuth()
 
+      const conversation = await getConversation(conversationId)
+
+      if (!conversation) {
+        if (json) {
+          fail(new Error('Conversation not found'), { json })
+        } else {
+          console.log('Conversation not found')
+        }
+
+        return
+      }
+
+      const messages = await getMessages({
+        conversationId,
+        sortDirection: 'ASC',
+      })
+
+      if (json) {
+        printJson({ conversation, messages })
+
+        return
+      }
+
+      const dim = text => `\x1b[2m${text}\x1b[0m`
+      const bold = text => `\x1b[1m${text}\x1b[0m`
+      const cyan = text => `\x1b[36m${text}\x1b[0m`
+      const green = text => `\x1b[32m${text}\x1b[0m`
+      const yellow = text => `\x1b[33m${text}\x1b[0m`
+      const magenta = text => `\x1b[35m${text}\x1b[0m`
+
+      console.log()
+      const name = conversation.customerNickname || conversation.customerId || conversation._id
+      console.log(bold(`Conversation with ${name}`))
+      const meta = [conversation._id]
+      if (conversation.country) meta.push(conversation.country)
+      if (conversation.resolved) meta.push('resolved')
+      console.log(dim(meta.join('  ·  ')))
+      console.log()
+
+      if (messages.length === 0) {
+        console.log(dim('No messages'))
+      } else {
+        messages.forEach(msg => {
+          const time = msg.creationTime
+            ? new Date(msg.creationTime).toLocaleString()
+            : ''
+
+          let label
+          if (msg.from === 'customer') {
+            label = green('customer')
+          } else if (msg.from === 'operator') {
+            label = yellow('operator')
+          } else if (msg.from === 'agent') {
+            label = magenta('agent')
+          } else {
+            label = msg.from
+          }
+
+          console.log(`${dim(time)}  ${label}`)
+          if (msg.content) {
+            console.log(`  ${msg.content}`)
+          }
+          if (msg.fileUrl) {
+            console.log(`  ${cyan(msg.fileUrl)}`)
+          }
+          if (msg.action) {
+            console.log(`  ${dim(`action: ${msg.action.name}(${JSON.stringify(msg.action.arguments)})`)}`)
+          }
+          console.log()
+        })
+      }
+
+      const footer = []
+      if (conversation.creationTime) footer.push(`${cyan('created')}  ${conversation.creationTime}`)
+      if (conversation.lastEditTime) footer.push(`${cyan('edited')}   ${conversation.lastEditTime}`)
+      if (conversation.websiteId) footer.push(`${cyan('websiteId')}  ${conversation.websiteId}`)
+
+      if (footer.length > 0) {
+        console.log(dim('---'))
+        footer.forEach(line => console.log(line))
+      }
+
+      console.log()
+    } catch (error) {
+      fail(error, { json })
+    }
+  })
+
+  // supovia conversations update <conversationId...> --resolved [true|false]
+  withJson(
+    command
+      .command('update <conversationIds...>')
+      .description('update one or more conversations')
+      .option('--resolved [value]', 'set resolved status (true/false)'),
+  ).action(async (conversationIds, options) => {
+    const { json } = options
+    try {
+      await ensureAuth()
+
+      const updates = {}
+
+      if (options.resolved !== undefined) {
+        updates.resolved = options.resolved !== 'false'
+      }
+
+      if (Object.keys(updates).length === 0) {
+        if (json) {
+          fail(
+            new Error(
+              'No updates specified. Use --resolved to set resolved status.',
+            ),
+            { json },
+          )
+        } else {
+          console.log('No updates specified. Use --resolved to set resolved status.')
+        }
+
+        return
+      }
+
+      const updated = []
+      const notFound = []
+
+      await conversationIds.reduce(async (previous, conversationId) => {
+        await previous
         const conversation = await getConversation(conversationId)
 
         if (!conversation) {
-          console.log('Conversation not found')
+          notFound.push(conversationId)
 
-          return
-        }
-
-        const messages = await getMessages({
-          conversationId,
-          sortDirection: 'ASC',
-        })
-
-        const dim = text => `\x1b[2m${text}\x1b[0m`
-        const bold = text => `\x1b[1m${text}\x1b[0m`
-        const cyan = text => `\x1b[36m${text}\x1b[0m`
-        const green = text => `\x1b[32m${text}\x1b[0m`
-        const yellow = text => `\x1b[33m${text}\x1b[0m`
-        const magenta = text => `\x1b[35m${text}\x1b[0m`
-
-        console.log()
-        const name = conversation.customerNickname || conversation.customerId || conversation._id
-        console.log(bold(`Conversation with ${name}`))
-        const meta = [conversation._id]
-        if (conversation.country) meta.push(conversation.country)
-        if (conversation.resolved) meta.push('resolved')
-        console.log(dim(meta.join('  ·  ')))
-        console.log()
-
-        if (messages.length === 0) {
-          console.log(dim('No messages'))
-        } else {
-          messages.forEach(msg => {
-            const time = msg.creationTime
-              ? new Date(msg.creationTime).toLocaleString()
-              : ''
-
-            let label
-            if (msg.from === 'customer') {
-              label = green('customer')
-            } else if (msg.from === 'operator') {
-              label = yellow('operator')
-            } else if (msg.from === 'agent') {
-              label = magenta('agent')
-            } else {
-              label = msg.from
-            }
-
-            console.log(`${dim(time)}  ${label}`)
-            if (msg.content) {
-              console.log(`  ${msg.content}`)
-            }
-            if (msg.fileUrl) {
-              console.log(`  ${cyan(msg.fileUrl)}`)
-            }
-            if (msg.action) {
-              console.log(`  ${dim(`action: ${msg.action.name}(${JSON.stringify(msg.action.arguments)})`)}`)
-            }
-            console.log()
-          })
-        }
-
-        const footer = []
-        if (conversation.creationTime) footer.push(`${cyan('created')}  ${conversation.creationTime}`)
-        if (conversation.lastEditTime) footer.push(`${cyan('edited')}   ${conversation.lastEditTime}`)
-        if (conversation.websiteId) footer.push(`${cyan('websiteId')}  ${conversation.websiteId}`)
-
-        if (footer.length > 0) {
-          console.log(dim('---'))
-          footer.forEach(line => console.log(line))
-        }
-
-        console.log()
-      } catch (error) {
-        console.log('error', error)
-      }
-    })
-
-  // supovia conversations update <conversationId...> --resolved [true|false]
-  command
-    .command('update <conversationIds...>')
-    .description('update one or more conversations')
-    .option('--resolved [value]', 'set resolved status (true/false)')
-    .action(async (conversationIds, options) => {
-      try {
-        await ensureLoggedIn()
-
-        const updates = {}
-
-        if (options.resolved !== undefined) {
-          updates.resolved = options.resolved !== 'false'
-        }
-
-        if (Object.keys(updates).length === 0) {
-          console.log('No updates specified. Use --resolved to set resolved status.')
-
-          return
-        }
-
-        await conversationIds.reduce(async (previous, conversationId) => {
-          await previous
-          const conversation = await getConversation(conversationId)
-
-          if (!conversation) {
+          if (!json) {
             console.log(`Conversation ${conversationId} not found`)
-
-            return
           }
 
-          await updateConversation({ ...conversation, ...updates })
+          return
+        }
+
+        await updateConversation({ ...conversation, ...updates })
+        updated.push(conversationId)
+
+        if (!json) {
           const name = conversation.customerNickname || conversation.customerId || conversation._id
           console.log(`Updated ${name} (${conversationId})`)
-        }, Promise.resolve())
-      } catch (error) {
-        console.log('error', error)
+        }
+      }, Promise.resolve())
+
+      if (json) {
+        printJson({ ok: notFound.length === 0, updated, notFound })
+
+        if (notFound.length > 0) {
+          process.exitCode = 1
+        }
       }
-    })
+    } catch (error) {
+      fail(error, { json })
+    }
+  })
 
   // supovia conversations resolve <conversationId...>
-  command
-    .command('resolve <conversationIds...>')
-    .description('mark one or more conversations as resolved')
-    .action(async conversationIds => {
-      try {
-        await ensureLoggedIn()
+  withJson(
+    command
+      .command('resolve <conversationIds...>')
+      .description('mark one or more conversations as resolved'),
+  ).action(async (conversationIds, options) => {
+    const { json } = options
+    try {
+      await ensureAuth()
 
-        await conversationIds.reduce(async (previous, conversationId) => {
-          await previous
-          const conversation = await getConversation(conversationId)
+      const updated = []
+      const notFound = []
 
-          if (!conversation) {
+      await conversationIds.reduce(async (previous, conversationId) => {
+        await previous
+        const conversation = await getConversation(conversationId)
+
+        if (!conversation) {
+          notFound.push(conversationId)
+
+          if (!json) {
             console.log(`Conversation ${conversationId} not found`)
-
-            return
           }
 
-          await updateConversation({ ...conversation, resolved: true })
+          return
+        }
+
+        await updateConversation({ ...conversation, resolved: true })
+        updated.push(conversationId)
+
+        if (!json) {
           const name = conversation.customerNickname || conversation.customerId || conversation._id
           console.log(`Resolved ${name} (${conversationId})`)
-        }, Promise.resolve())
-      } catch (error) {
-        console.log('error', error)
+        }
+      }, Promise.resolve())
+
+      if (json) {
+        printJson({ ok: notFound.length === 0, updated, notFound })
+
+        if (notFound.length > 0) {
+          process.exitCode = 1
+        }
       }
-    })
+    } catch (error) {
+      fail(error, { json })
+    }
+  })
 
   return command
 }

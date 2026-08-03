@@ -1,26 +1,5 @@
 #!/usr/bin/env node
 /* Copyright 2025 Supovia LLC */
-const program = require('commander')
-const conversationsCommand = require('./conversationsCommand.js')
-const customersCommand = require('./customersCommand.js')
-const docsCommand = require('./docsCommand.js')
-const loginCommand = require('./loginCommand.js')
-const logoutCommand = require('./logoutCommand.js')
-const messagesCommand = require('./messagesCommand.js')
-const skillsCommand = require('./skillsCommand.js')
-const websitesCommand = require('./websitesCommand.js')
-const packageJson = require('./package.json')
+const createProgram = require('./program.js')
 
-program
-  .name('supovia')
-  .description('supovia cli — manage support docs, conversations and websites')
-  .version(packageJson.version)
-  .addCommand(conversationsCommand())
-  .addCommand(customersCommand())
-  .addCommand(docsCommand())
-  .addCommand(loginCommand())
-  .addCommand(logoutCommand())
-  .addCommand(messagesCommand())
-  .addCommand(skillsCommand())
-  .addCommand(websitesCommand())
-  .parse(process.argv)
+createProgram().parse(process.argv)
