@@ -39,6 +39,16 @@ Keep raw exports local, and never paste message bodies, customer emails, phone
 numbers, or other identities into public places — issue trackers, commit
 messages, documentation, or third-party tools.
 
+## Signing up
+
+No account yet? Create one from the terminal — the generated password prints
+exactly once, and the session is stored so every other command works
+immediately:
+
+```bash
+supovia signup --email founder@example.com --json
+```
+
 ## Authentication
 
 There are two ways to authenticate, and one environment variable:

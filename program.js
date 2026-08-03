@@ -8,6 +8,7 @@ const docsCommand = require('./docsCommand.js')
 const loginCommand = require('./loginCommand.js')
 const logoutCommand = require('./logoutCommand.js')
 const messagesCommand = require('./messagesCommand.js')
+const signupCommand = require('./signupCommand.js')
 const websitesCommand = require('./websitesCommand.js')
 const packageJson = require('./package.json')
 
@@ -27,6 +28,7 @@ module.exports = function createProgram() {
     .addCommand(loginCommand())
     .addCommand(logoutCommand())
     .addCommand(messagesCommand())
+    .addCommand(signupCommand())
     .addCommand(skillsCommand({ baseDirectory: __dirname }))
     .addCommand(websitesCommand())
 
