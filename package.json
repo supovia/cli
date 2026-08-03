@@ -1,0 +1,46 @@
+{
+  "name": "supovia",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Customer-support CLI for Supovia — help-center documents, support conversations and messages, customers, and websites",
+  "license": "Apache-2.0",
+  "repository": "github:supovia/cli",
+  "homepage": "https://www.supovia.com/developers/",
+  "author": "Supovia",
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "bin": {
+    "supovia": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "develop": "node index.js",
+    "prepublishOnly": "npm run build",
+    "publish:npm": "npm publish --access public",
+    "publish:repo": "node scripts/publishCli.mjs"
+  },
+  "files": [
+    "dist",
+    "skills"
+  ],
+  "keywords": [
+    "knowledge-base",
+    "documents",
+    "ai",
+    "chatbot"
+  ],
+  "dependencies": {
+    "commander": "8.3.0",
+    "fs-extra": "10.1.0",
+    "inquirer": "8.2.5",
+    "node-localstorage": "2.2.1"
+  },
+  "devDependencies": {
+    "@supovia/client": "0.0.0",
+    "esbuild": "0.25.4",
+    "eslint": "10.8.0"
+  }
+}
