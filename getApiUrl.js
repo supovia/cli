@@ -8,6 +8,6 @@
 // @supovia/client: the client attaches whatever credential it already holds,
 // and signup is the one call that must carry no credential but the email and
 // password being registered.
-module.exports = function getApiUrl() {
+export default function getApiUrl() {
   return process.env.SUPOVIA_API_URL || 'https://api.supovia.com'
 }

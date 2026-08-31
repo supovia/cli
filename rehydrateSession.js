@@ -1,17 +1,16 @@
 /* Copyright 2025 Supovia LLC */
-const {
-  setAccessTokenForSupoviaClient,
+import {
   setAccessTokenCallbackForSupoviaClient,
-} = require('@supovia/client/accessToken.js')
-const {
-  setRefreshTokenForSupoviaClient,
-} = require('@supovia/client/refreshToken.js')
-const session = require('./sessionStore.js')
+  setAccessTokenForSupoviaClient,
+} from '@supovia/client/accessToken.js'
+import { setRefreshTokenForSupoviaClient } from '@supovia/client/refreshToken.js'
+
+import session from './sessionStore.js'
 
 // Pushes the stored browser session into @supovia/client and registers the
 // persistence callback, so an access token the client refreshes mid-command
 // lands back in ~/.supovia/ for the next invocation.
-module.exports = async function rehydrateSession() {
+export default async function rehydrateSession() {
   setAccessTokenForSupoviaClient(session.getAccessToken())
   setRefreshTokenForSupoviaClient(session.getRefreshToken())
   setAccessTokenCallbackForSupoviaClient(accessToken => {

@@ -1,16 +1,23 @@
 {
   "name": "supovia",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": false,
   "description": "Customer-support CLI for Supovia — help-center documents, support conversations and messages, customers, and websites",
   "license": "Apache-2.0",
   "repository": "github:supovia/cli",
   "homepage": "https://www.supovia.com/developers/",
   "author": "Supovia",
-  "type": "commonjs",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "main": "./dist/index.js",
   "bin": {
-    "supovia": "./dist/index.js"
+    "supovia": "./bin/supovia.js"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -20,9 +27,11 @@
     "develop": "node index.js",
     "prepublishOnly": "npm run build",
     "publish:npm": "npm publish --access public",
-    "publish:repo": "node scripts/publishCli.mjs"
+    "publish:repo": "node scripts/publishCli.mjs",
+    "test:smoke": "node scripts/build.js && node --check dist/index.js && node dist/index.js --version"
   },
   "files": [
+    "bin",
     "dist",
     "skills"
   ],
@@ -30,7 +39,8 @@
     "knowledge-base",
     "documents",
     "ai",
-    "chatbot"
+    "chatbot",
+    "cli"
   ],
   "dependencies": {
     "commander": "8.3.0",
@@ -41,7 +51,6 @@
   "devDependencies": {
     "@monorepool/agentfirst": "0.0.0",
     "@supovia/client": "0.0.0",
-    "esbuild": "0.25.4",
-    "eslint": "10.8.0"
+    "esbuild": "0.25.4"
   }
 }

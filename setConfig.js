@@ -1,8 +1,10 @@
 /* Copyright 2025 Supovia LLC */
-const fs = require('fs-extra')
-const path = require('node:path')
 
-module.exports = function setConfig(config) {
+import path from 'node:path'
+
+import fs from 'fs-extra'
+
+export default function setConfig(config) {
   const configPath = path.resolve('.', 'supovia.json')
 
   let string = ''

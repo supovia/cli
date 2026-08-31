@@ -1,17 +1,15 @@
 /* Copyright 2025 Supovia LLC */
-const { inspect } = require('node:util')
-const commander = require('commander')
-const {
-  printJson,
-  withJson,
-  fail,
-} = require('@monorepool/agentfirst/output.js')
-const ensureAuth = require('./ensureAuth.js')
-const getConfig = require('./getConfig.js')
-const getConversations = require('@supovia/client/getConversations.js').default
-const getConversation = require('@supovia/client/getConversation.js').default
-const getMessages = require('@supovia/client/getMessages.js').default
-const updateConversation = require('@supovia/client/updateConversation.js').default
+import { inspect } from 'node:util'
+
+import { fail, printJson, withJson } from '@monorepool/agentfirst/output.js'
+import getConversation from '@supovia/client/getConversation.js'
+import getConversations from '@supovia/client/getConversations.js'
+import getMessages from '@supovia/client/getMessages.js'
+import updateConversation from '@supovia/client/updateConversation.js'
+import commander from 'commander'
+
+import ensureAuth from './ensureAuth.js'
+import getConfig from './getConfig.js'
 
 function conversationsCommand() {
   const command = new commander.Command('conversations')
@@ -39,9 +37,15 @@ function conversationsCommand() {
         sortDirection: 'DESC',
         limit: options.limit || 10,
       }
-      if (websiteId) parameters.websiteId = websiteId
-      if (options.customerId) parameters.customerId = options.customerId
-      if (options.key) parameters.key = options.key
+      if (websiteId) {
+        parameters.websiteId = websiteId
+      }
+      if (options.customerId) {
+        parameters.customerId = options.customerId
+      }
+      if (options.key) {
+        parameters.key = options.key
+      }
 
       const conversations = await getConversations(parameters)
 
@@ -52,7 +56,9 @@ function conversationsCommand() {
       } else {
         console.log(`Found ${conversations.length} conversation(s):`)
         conversations.forEach((conv, index) => {
-          const lastMessage = conv.lastMessage ? conv.lastMessage.replace(/\n/g, ' ') : ''
+          const lastMessage = conv.lastMessage
+            ? conv.lastMessage.replace(/\n/g, ' ')
+            : ''
           const preview = lastMessage
             ? ` - ${lastMessage.substring(0, 60)}${lastMessage.length > 60 ? '...' : ''}`
             : ''
@@ -69,7 +75,9 @@ function conversationsCommand() {
   withJson(
     command
       .command('get [conversationId]')
-      .description('get conversations (raw JSON), or a single conversation by id')
+      .description(
+        'get conversations (raw JSON), or a single conversation by id',
+      )
       .option('--websiteId [websiteId]', 'website id')
       .option('--customerId [customerId]', 'filter by customer id')
       .option('-k, --key [key]', 'filter by key')
@@ -101,9 +109,15 @@ function conversationsCommand() {
           sortDirection: 'DESC',
           limit: options.limit || 10,
         }
-        if (websiteId) parameters.websiteId = websiteId
-        if (options.customerId) parameters.customerId = options.customerId
-        if (options.key) parameters.key = options.key
+        if (websiteId) {
+          parameters.websiteId = websiteId
+        }
+        if (options.customerId) {
+          parameters.customerId = options.customerId
+        }
+        if (options.key) {
+          parameters.key = options.key
+        }
         const conversations = await getConversations(parameters)
         if (json) {
           printJson(conversations)
@@ -157,11 +171,18 @@ function conversationsCommand() {
       const magenta = text => `\x1b[35m${text}\x1b[0m`
 
       console.log()
-      const name = conversation.customerNickname || conversation.customerId || conversation._id
+      const name =
+        conversation.customerNickname ||
+        conversation.customerId ||
+        conversation._id
       console.log(bold(`Conversation with ${name}`))
       const meta = [conversation._id]
-      if (conversation.country) meta.push(conversation.country)
-      if (conversation.resolved) meta.push('resolved')
+      if (conversation.country) {
+        meta.push(conversation.country)
+      }
+      if (conversation.resolved) {
+        meta.push('resolved')
+      }
       console.log(dim(meta.join('  ·  ')))
       console.log()
 
@@ -192,16 +213,24 @@ function conversationsCommand() {
             console.log(`  ${cyan(msg.fileUrl)}`)
           }
           if (msg.action) {
-            console.log(`  ${dim(`action: ${msg.action.name}(${JSON.stringify(msg.action.arguments)})`)}`)
+            console.log(
+              `  ${dim(`action: ${msg.action.name}(${JSON.stringify(msg.action.arguments)})`)}`,
+            )
           }
           console.log()
         })
       }
 
       const footer = []
-      if (conversation.creationTime) footer.push(`${cyan('created')}  ${conversation.creationTime}`)
-      if (conversation.lastEditTime) footer.push(`${cyan('edited')}   ${conversation.lastEditTime}`)
-      if (conversation.websiteId) footer.push(`${cyan('websiteId')}  ${conversation.websiteId}`)
+      if (conversation.creationTime) {
+        footer.push(`${cyan('created')}  ${conversation.creationTime}`)
+      }
+      if (conversation.lastEditTime) {
+        footer.push(`${cyan('edited')}   ${conversation.lastEditTime}`)
+      }
+      if (conversation.websiteId) {
+        footer.push(`${cyan('websiteId')}  ${conversation.websiteId}`)
+      }
 
       if (footer.length > 0) {
         console.log(dim('---'))
@@ -240,7 +269,9 @@ function conversationsCommand() {
             { json },
           )
         } else {
-          console.log('No updates specified. Use --resolved to set resolved status.')
+          console.log(
+            'No updates specified. Use --resolved to set resolved status.',
+          )
         }
 
         return
@@ -267,7 +298,10 @@ function conversationsCommand() {
         updated.push(conversationId)
 
         if (!json) {
-          const name = conversation.customerNickname || conversation.customerId || conversation._id
+          const name =
+            conversation.customerNickname ||
+            conversation.customerId ||
+            conversation._id
           console.log(`Updated ${name} (${conversationId})`)
         }
       }, Promise.resolve())
@@ -315,7 +349,10 @@ function conversationsCommand() {
         updated.push(conversationId)
 
         if (!json) {
-          const name = conversation.customerNickname || conversation.customerId || conversation._id
+          const name =
+            conversation.customerNickname ||
+            conversation.customerId ||
+            conversation._id
           console.log(`Resolved ${name} (${conversationId})`)
         }
       }, Promise.resolve())
@@ -335,4 +372,4 @@ function conversationsCommand() {
   return command
 }
 
-module.exports = conversationsCommand
+export default conversationsCommand

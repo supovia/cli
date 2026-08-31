@@ -1,53 +1,53 @@
 /* Copyright 2025 Supovia LLC */
-const { inspect } = require('node:util')
-const commander = require('commander')
-const {
-  printJson,
-  withJson,
-  fail,
-} = require('@monorepool/agentfirst/output.js')
-const ensureAuth = require('./ensureAuth.js')
-const getWebsites = require('@supovia/client/getWebsites.js').default
-const getWebsite = require('@supovia/client/getWebsite.js').default
-const addWebsite = require('@supovia/client/addWebsite.js').default
-const updateWebsite = require('@supovia/client/updateWebsite.js').default
+import { inspect } from 'node:util'
+
+import { fail, printJson, withJson } from '@monorepool/agentfirst/output.js'
+import addWebsite from '@supovia/client/addWebsite.js'
+import getWebsite from '@supovia/client/getWebsite.js'
+import getWebsites from '@supovia/client/getWebsites.js'
+import updateWebsite from '@supovia/client/updateWebsite.js'
+import commander from 'commander'
+
+import ensureAuth from './ensureAuth.js'
 
 function websitesCommand() {
   const command = new commander.Command('websites')
   command.description('manage websites')
 
   // supovia websites list
-  withJson(
-    command.command('list').description('list websites'),
-  ).action(async options => {
-    const { json } = options
-    try {
-      await ensureAuth()
+  withJson(command.command('list').description('list websites')).action(
+    async options => {
+      const { json } = options
+      try {
+        await ensureAuth()
 
-      const websites = await getWebsites()
+        const websites = await getWebsites()
 
-      if (json) {
-        printJson(websites)
-      } else if (websites.length === 0) {
-        console.log('No websites found')
-      } else {
-        console.log(`Found ${websites.length} website(s):`)
-        websites.forEach((site, index) => {
-          const name = site.name || site.domain || site._id
-          const domain = site.domain ? ` (${site.domain})` : ''
-          console.log(`${index + 1}. ${name}${domain} (${site._id})`)
-        })
+        if (json) {
+          printJson(websites)
+        } else if (websites.length === 0) {
+          console.log('No websites found')
+        } else {
+          console.log(`Found ${websites.length} website(s):`)
+          websites.forEach((site, index) => {
+            const name = site.name || site.domain || site._id
+            const domain = site.domain ? ` (${site.domain})` : ''
+            console.log(`${index + 1}. ${name}${domain} (${site._id})`)
+          })
+        }
+      } catch (error) {
+        fail(error, { json })
       }
-    } catch (error) {
-      fail(error, { json })
-    }
-  })
+    },
+  )
 
   // supovia websites get [websiteIdOrName]
   withJson(
     command
       .command('get [websiteIdOrName]')
-      .description('get websites (raw JSON), or a single website by id or name'),
+      .description(
+        'get websites (raw JSON), or a single website by id or name',
+      ),
   ).action(async (websiteIdOrName, options) => {
     const { json } = options
     try {
@@ -116,27 +116,35 @@ function websitesCommand() {
       const name = website.name || website.domain || website._id
       console.log(bold(name))
       const meta = [website._id]
-      if (website.domain) meta.push(website.domain)
+      if (website.domain) {
+        meta.push(website.domain)
+      }
       console.log(dim(meta.join('  ·  ')))
       console.log()
 
       const fields = []
-      if (website.organizationId) fields.push(`${cyan('organizationId')}  ${website.organizationId}`)
-      if (website.domain) fields.push(`${cyan('domain')}  ${website.domain}`)
+      if (website.organizationId) {
+        fields.push(`${cyan('organizationId')}  ${website.organizationId}`)
+      }
+      if (website.domain) {
+        fields.push(`${cyan('domain')}  ${website.domain}`)
+      }
       const customerAgentEnabled =
         website.customerAgentEnabled ?? website.agentEnabled
       const customerAgentPrompt =
         website.customerAgentPrompt ?? website.agentPrompt
       if (customerAgentEnabled != null) {
-        fields.push(
-          `${cyan('customerAgentEnabled')}  ${customerAgentEnabled}`,
-        )
+        fields.push(`${cyan('customerAgentEnabled')}  ${customerAgentEnabled}`)
       }
       if (customerAgentPrompt) {
         fields.push(`${cyan('customerAgentPrompt')}  ${customerAgentPrompt}`)
       }
-      if (website.creationTime) fields.push(`${cyan('created')}  ${website.creationTime}`)
-      if (website.lastEditTime) fields.push(`${cyan('edited')}   ${website.lastEditTime}`)
+      if (website.creationTime) {
+        fields.push(`${cyan('created')}  ${website.creationTime}`)
+      }
+      if (website.lastEditTime) {
+        fields.push(`${cyan('edited')}   ${website.lastEditTime}`)
+      }
 
       if (fields.length > 0) {
         fields.forEach(line => console.log(line))
@@ -203,13 +211,20 @@ function websitesCommand() {
 
       const updates = {}
 
-      if (options.domain !== undefined) updates.domain = options.domain
-      if (options.whitelabelDocsUrl !== undefined) updates.whitelabelDocsUrl = options.whitelabelDocsUrl
-      if (options.iframeUrl !== undefined) updates.iframeUrl = options.iframeUrl
-      if (options.defaultLocale !== undefined) updates.defaultLocale = options.defaultLocale
+      if (options.domain !== undefined) {
+        updates.domain = options.domain
+      }
+      if (options.whitelabelDocsUrl !== undefined) {
+        updates.whitelabelDocsUrl = options.whitelabelDocsUrl
+      }
+      if (options.iframeUrl !== undefined) {
+        updates.iframeUrl = options.iframeUrl
+      }
+      if (options.defaultLocale !== undefined) {
+        updates.defaultLocale = options.defaultLocale
+      }
       if (options.customerAgentEnabled !== undefined) {
-        updates.customerAgentEnabled =
-          options.customerAgentEnabled !== 'false'
+        updates.customerAgentEnabled = options.customerAgentEnabled !== 'false'
       }
       if (options.customerAgentPrompt !== undefined) {
         updates.customerAgentPrompt = options.customerAgentPrompt
@@ -272,4 +287,4 @@ function websitesCommand() {
   return command
 }
 
-module.exports = websitesCommand
+export default websitesCommand

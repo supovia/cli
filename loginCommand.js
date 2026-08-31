@@ -1,9 +1,10 @@
 /* Copyright 2025 Supovia LLC */
-const agentfirstLoginCommand = require('@monorepool/agentfirst/loginCommand.js')
-const { setApiKeyForSupoviaClient } = require('@supovia/client/apiKey.js')
-const getWebsites = require('@supovia/client/getWebsites.js').default
-const getAppUrl = require('./getAppUrl.js')
-const session = require('./sessionStore.js')
+import agentfirstLoginCommand from '@monorepool/agentfirst/loginCommand.js'
+import { setApiKeyForSupoviaClient } from '@supovia/client/apiKey.js'
+import getWebsites from '@supovia/client/getWebsites.js'
+
+import getAppUrl from './getAppUrl.js'
+import session from './sessionStore.js'
 
 // Dual-mode login via the shared factory:
 //
@@ -13,7 +14,7 @@ const session = require('./sessionStore.js')
 // The secret is never accepted as an argument. `verify` makes one cheap
 // authenticated GET so a bad key fails at login instead of at the first real
 // command; the factory drops the secret again when it throws.
-module.exports = function loginCommand() {
+export default function loginCommand() {
   return agentfirstLoginCommand({
     binaryName: 'supovia',
     appUrl: getAppUrl(),

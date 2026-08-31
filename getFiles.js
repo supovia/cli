@@ -1,6 +1,8 @@
 /* Copyright 2025 Supovia LLC */
-const fs = require('fs-extra')
-const path = require('node:path')
+
+import path from 'node:path'
+
+import fs from 'fs-extra'
 
 function getFiles_(dir) {
   let subdirs = fs.readdirSync(dir)
@@ -23,4 +25,4 @@ function getFiles(dir) {
   return files
 }
 
-module.exports = getFiles
+export default getFiles

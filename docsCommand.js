@@ -1,18 +1,58 @@
 /* Copyright 2025 Supovia LLC */
-const { inspect } = require('node:util')
-const commander = require('commander')
-const inquirer = require('inquirer')
-const {
-  printJson,
-  withJson,
-  fail,
-} = require('@monorepool/agentfirst/output.js')
-const ensureAuth = require('./ensureAuth.js')
-const getConfig = require('./getConfig.js')
-const getDocument = require('@supovia/client/getDocument.js').default
-const getDocuments = require('@supovia/client/getDocuments.js').default
-const addOrUpdateDocument = require('@supovia/client/addOrUpdateDocument.js').default
+import fs from 'node:fs'
+import { inspect } from 'node:util'
 
+import { fail, printJson, withJson } from '@monorepool/agentfirst/output.js'
+import addOrUpdateDocument from '@supovia/client/addOrUpdateDocument.js'
+import getDocument from '@supovia/client/getDocument.js'
+import getDocuments from '@supovia/client/getDocuments.js'
+import commander from 'commander'
+import inquirer from 'inquirer'
+
+import ensureAuth from './ensureAuth.js'
+import getConfig from './getConfig.js'
+
+// A document body is one string plus a sibling `contentFormat` discriminator.
+// These constants and the resolver below mirror
+// `supovia/shared/documentContentFormat.js`, which is the source of truth; this
+// package declares no workspace dependencies (esbuild bundles the CLI and only
+// @supovia/client comes along) so the handful of values is copied instead.
+const DOCUMENT_CONTENT_FORMAT_HTML = 'html'
+const DOCUMENT_CONTENT_FORMAT_MARKDOWN = 'markdown'
+const DOCUMENT_CONTENT_FORMAT_PLAIN_TEXT = 'plain-text'
+
+// An absent or unrecognized marker means html: every document written before
+// the field existed is html and carries nothing.
+const DOCUMENT_CONTENT_FORMAT_FALLBACK = DOCUMENT_CONTENT_FORMAT_HTML
+
+// What `docs add` writes unless told otherwise, so the html corpus stops
+// growing.
+const DOCUMENT_CONTENT_FORMAT_DEFAULT = DOCUMENT_CONTENT_FORMAT_MARKDOWN
+
+const DOCUMENT_CONTENT_FORMATS = [
+  DOCUMENT_CONTENT_FORMAT_HTML,
+  DOCUMENT_CONTENT_FORMAT_MARKDOWN,
+  DOCUMENT_CONTENT_FORMAT_PLAIN_TEXT,
+]
+
+// 'plain-text' is deliberately not offered: supovia/api stamps it on
+// host-integration writes and a partial unique Mongo index keys off that exact
+// value, so an operator setting or clearing it would move rows in and out of a
+// uniqueness constraint.
+const DOCUMENT_CONTENT_FORMATS_AUTHORABLE = [
+  DOCUMENT_CONTENT_FORMAT_MARKDOWN,
+  DOCUMENT_CONTENT_FORMAT_HTML,
+]
+
+function documentContentFormat(document) {
+  const format = document?.contentFormat
+
+  return DOCUMENT_CONTENT_FORMATS.includes(format)
+    ? format
+    : DOCUMENT_CONTENT_FORMAT_FALLBACK
+}
+
+// --- HTML-ONLY BLOCK — delete with the html format ---
 function stripHtml(html) {
   return html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -33,13 +73,56 @@ function stripHtml(html) {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
+// --- end HTML-ONLY BLOCK ---
+
+// Deliberately lighter than `stripMarkdownToPlainText` in
+// `supovia/shared/documentToPlainText.js`: that one feeds an embedder, this one
+// feeds a human reading a terminal. So the code inside a fence survives (only
+// the fence lines go), an image keeps its alt text, and a list keeps the same
+// `  - ` bullet `stripHtml` above gives `<li>`.
+function stripMarkdown(markdown) {
+  return markdown
+    .replace(/^[ \t]{0,3}(?:```|~~~).*$/gm, '')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
+    .replace(/^[ \t]{0,3}>[ \t]?/gm, '')
+    .replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/gm, '  - ')
+    .replace(/\*\*([^*]*)\*\*/g, '$1')
+    .replace(/__([^_]*)__/g, '$1')
+    .replace(/\*([^*]*)\*/g, '$1')
+    .replace(/~~([^~]*)~~/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function documentToTerminalText(document) {
+  const content = document?.content || ''
+  const format = documentContentFormat(document)
+
+  if (format === DOCUMENT_CONTENT_FORMAT_MARKDOWN) {
+    return stripMarkdown(content)
+  }
+
+  // --- HTML-ONLY BLOCK — delete with the html format ---
+  if (format === DOCUMENT_CONTENT_FORMAT_HTML) {
+    return stripHtml(content)
+  }
+  // --- end HTML-ONLY BLOCK ---
+
+  // 'plain-text' — host-integration content, already prose.
+  return String(content).trim()
+}
 
 async function fetchDocument(idOrSlug, options) {
   let doc
 
   try {
     const parameters = {}
-    if (options.locale) parameters.locale = options.locale
+    if (options.locale) {
+      parameters.locale = options.locale
+    }
     const originalError = console.error
     console.error = () => {}
     try {
@@ -85,7 +168,9 @@ function docsCommand() {
       const websiteId = options.websiteId || config?.websiteId
 
       const parameters = { websiteId }
-      if (options.locale) parameters.locale = options.locale
+      if (options.locale) {
+        parameters.locale = options.locale
+      }
 
       let documents = await getDocuments(parameters)
 
@@ -112,7 +197,9 @@ function docsCommand() {
   withJson(
     command
       .command('get [idOrSlug]')
-      .description('get documents (raw JSON), or a single document by id or slug')
+      .description(
+        'get documents (raw JSON), or a single document by id or slug',
+      )
       .option('--websiteId [websiteId]', 'website id')
       .option('-l, --locale [locale]', 'filter by locale')
       .option('-s, --slug [slug]', 'filter by slugOriginal')
@@ -140,8 +227,12 @@ function docsCommand() {
         const config = getConfig()
         const websiteId = options.websiteId || config?.websiteId
         const parameters = { limit: options.limit || 10 }
-        if (websiteId) parameters.websiteId = websiteId
-        if (options.locale) parameters.locale = options.locale
+        if (websiteId) {
+          parameters.websiteId = websiteId
+        }
+        if (options.locale) {
+          parameters.locale = options.locale
+        }
         let documents = await getDocuments(parameters)
         if (options.slug) {
           documents = documents.filter(doc => doc.slugOriginal === options.slug)
@@ -196,16 +287,26 @@ function docsCommand() {
       console.log()
 
       if (doc.content) {
-        console.log(stripHtml(doc.content))
+        console.log(documentToTerminalText(doc))
         console.log()
       }
 
       const meta = []
-      if (doc.slugOriginal) meta.push(`${cyan('slugOriginal')}  ${doc.slugOriginal}`)
-      if (doc.originalDocumentId) meta.push(`${cyan('originalDocumentId')}  ${doc.originalDocumentId}`)
-      if (doc.creationTime) meta.push(`${cyan('created')}  ${doc.creationTime}`)
-      if (doc.lastEditTime) meta.push(`${cyan('edited')}   ${doc.lastEditTime}`)
-      if (doc.googleTranslate) meta.push(`${cyan('googleTranslate')}  true`)
+      if (doc.slugOriginal) {
+        meta.push(`${cyan('slugOriginal')}  ${doc.slugOriginal}`)
+      }
+      if (doc.originalDocumentId) {
+        meta.push(`${cyan('originalDocumentId')}  ${doc.originalDocumentId}`)
+      }
+      if (doc.creationTime) {
+        meta.push(`${cyan('created')}  ${doc.creationTime}`)
+      }
+      if (doc.lastEditTime) {
+        meta.push(`${cyan('edited')}   ${doc.lastEditTime}`)
+      }
+      if (doc.googleTranslate) {
+        meta.push(`${cyan('googleTranslate')}  true`)
+      }
 
       if (meta.length > 0) {
         console.log(dim('---'))
@@ -224,7 +325,16 @@ function docsCommand() {
       .command('add')
       .description('add a new document')
       .option('--title [title]', 'document title')
-      .option('--content [content]', 'document content')
+      .option('--content [content]', 'document content (inline string)')
+      .option(
+        '--content-file <path>',
+        'path to a file whose contents become the document content',
+      )
+      .option(
+        '--format <format>',
+        `content syntax (${DOCUMENT_CONTENT_FORMATS_AUTHORABLE.join(' or ')})`,
+        DOCUMENT_CONTENT_FORMAT_DEFAULT,
+      )
       .option('--websiteId [websiteId]', 'website id'),
   ).action(async options => {
     const { json } = options
@@ -232,6 +342,28 @@ function docsCommand() {
       await ensureAuth()
 
       const config = getConfig()
+
+      if (!DOCUMENT_CONTENT_FORMATS_AUTHORABLE.includes(options.format)) {
+        // Naming 'plain-text' here would be worse than a typo: it is the marker
+        // supovia/api stamps on host-integration writes, and a partial unique
+        // index keys off it.
+        fail(
+          new Error(
+            `--format must be one of ${DOCUMENT_CONTENT_FORMATS_AUTHORABLE.join(
+              ', ',
+            )}`,
+          ),
+          { json },
+        )
+
+        return
+      }
+
+      // A markdown body is multi-line, so `--content` on a shell is hostile;
+      // polyblog/cli/articlesCommand.js reads its article bodies the same way.
+      const contentFromFile = options.contentFile
+        ? fs.readFileSync(options.contentFile, 'utf8')
+        : undefined
 
       const answers = await inquirer.prompt([
         {
@@ -242,7 +374,7 @@ function docsCommand() {
         {
           name: 'content',
           message: 'Document content:',
-          when: !options.content,
+          when: contentFromFile === undefined && !options.content,
         },
         {
           name: 'websiteId',
@@ -252,12 +384,14 @@ function docsCommand() {
       ])
 
       const title = options.title || answers.title
-      const content = options.content || answers.content
-      const websiteId = options.websiteId || config?.websiteId || answers.websiteId
+      const content = contentFromFile ?? (options.content || answers.content)
+      const websiteId =
+        options.websiteId || config?.websiteId || answers.websiteId
 
       const document = await addOrUpdateDocument({
         title,
         content,
+        contentFormat: options.format,
         websiteId,
       })
 
@@ -276,4 +410,4 @@ function docsCommand() {
   return command
 }
 
-module.exports = docsCommand
+export default docsCommand

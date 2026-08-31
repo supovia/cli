@@ -1,18 +1,19 @@
 /* Copyright 2025 Supovia LLC */
-const createEnsureAuth = require('@monorepool/agentfirst/ensureAuth.js')
-const loginWithBrowser = require('@monorepool/agentfirst/loginWithBrowser.js')
-const {
-  setAccessTokenForSupoviaClient,
+import createEnsureAuth from '@monorepool/agentfirst/ensureAuth.js'
+import loginWithBrowser from '@monorepool/agentfirst/loginWithBrowser.js'
+import {
   setAccessTokenCallbackForSupoviaClient,
-} = require('@supovia/client/accessToken.js')
-const { setApiKeyForSupoviaClient } = require('@supovia/client/apiKey.js')
-const {
-  setRefreshTokenForSupoviaClient,
+  setAccessTokenForSupoviaClient,
+} from '@supovia/client/accessToken.js'
+import { setApiKeyForSupoviaClient } from '@supovia/client/apiKey.js'
+import {
   isRefreshTokenExpired,
-} = require('@supovia/client/refreshToken.js')
-const getAppUrl = require('./getAppUrl.js')
-const rehydrateSession = require('./rehydrateSession.js')
-const session = require('./sessionStore.js')
+  setRefreshTokenForSupoviaClient,
+} from '@supovia/client/refreshToken.js'
+
+import getAppUrl from './getAppUrl.js'
+import rehydrateSession from './rehydrateSession.js'
+import session from './sessionStore.js'
 
 const ENV_KEY_NAME = 'SUPOVIA_API_KEY'
 
@@ -52,7 +53,7 @@ async function dropExpiredSession() {
   }
 }
 
-module.exports = async function ensureAuth() {
+export default async function ensureAuth() {
   await dropExpiredSession()
 
   let resolved = await resolveAuth()

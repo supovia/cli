@@ -1,15 +1,13 @@
 /* Copyright 2025 Supovia LLC */
-const { inspect } = require('node:util')
-const commander = require('commander')
-const {
-  printJson,
-  withJson,
-  fail,
-} = require('@monorepool/agentfirst/output.js')
-const ensureAuth = require('./ensureAuth.js')
-const getConfig = require('./getConfig.js')
-const getCustomers = require('@supovia/client/getCustomers.js').default
-const getCustomer = require('@supovia/client/getCustomer.js').default
+import { inspect } from 'node:util'
+
+import { fail, printJson, withJson } from '@monorepool/agentfirst/output.js'
+import getCustomer from '@supovia/client/getCustomer.js'
+import getCustomers from '@supovia/client/getCustomers.js'
+import commander from 'commander'
+
+import ensureAuth from './ensureAuth.js'
+import getConfig from './getConfig.js'
 
 function customersCommand() {
   const command = new commander.Command('customers')
@@ -32,8 +30,12 @@ function customersCommand() {
       const websiteId = options.websiteId || config?.websiteId
 
       const parameters = {}
-      if (websiteId) parameters.websiteId = websiteId
-      if (options.email) parameters.email = options.email
+      if (websiteId) {
+        parameters.websiteId = websiteId
+      }
+      if (options.email) {
+        parameters.email = options.email
+      }
 
       let customers = await getCustomers(parameters)
 
@@ -91,8 +93,12 @@ function customersCommand() {
         const config = getConfig()
         const websiteId = options.websiteId || config?.websiteId
         const parameters = {}
-        if (websiteId) parameters.websiteId = websiteId
-        if (options.email) parameters.email = options.email
+        if (websiteId) {
+          parameters.websiteId = websiteId
+        }
+        if (options.email) {
+          parameters.email = options.email
+        }
         let customers = await getCustomers(parameters)
         if (options.limit) {
           customers = customers.slice(0, parseInt(options.limit, 10))
@@ -143,22 +149,43 @@ function customersCommand() {
       const cyan = text => `\x1b[36m${text}\x1b[0m`
 
       console.log()
-      const name = customer.nickname || customer.email || customer.phone || customer._id
+      const name =
+        customer.nickname || customer.email || customer.phone || customer._id
       console.log(bold(name))
       console.log(dim(customer._id))
       console.log()
 
       const fields = []
-      if (customer.email) fields.push(`${cyan('email')}  ${customer.email}`)
-      if (customer.phone) fields.push(`${cyan('phone')}  ${customer.phone}`)
-      if (customer.nickname) fields.push(`${cyan('nickname')}  ${customer.nickname}`)
-      if (customer.language) fields.push(`${cyan('language')}  ${customer.language}`)
-      if (customer.country) fields.push(`${cyan('country')}  ${customer.country}`)
-      if (customer.userId) fields.push(`${cyan('userId')}  ${customer.userId}`)
-      if (customer.websiteId) fields.push(`${cyan('websiteId')}  ${customer.websiteId}`)
-      if (customer.organizationId) fields.push(`${cyan('organizationId')}  ${customer.organizationId}`)
-      if (customer.creationTime) fields.push(`${cyan('created')}  ${customer.creationTime}`)
-      if (customer.lastEditTime) fields.push(`${cyan('edited')}   ${customer.lastEditTime}`)
+      if (customer.email) {
+        fields.push(`${cyan('email')}  ${customer.email}`)
+      }
+      if (customer.phone) {
+        fields.push(`${cyan('phone')}  ${customer.phone}`)
+      }
+      if (customer.nickname) {
+        fields.push(`${cyan('nickname')}  ${customer.nickname}`)
+      }
+      if (customer.language) {
+        fields.push(`${cyan('language')}  ${customer.language}`)
+      }
+      if (customer.country) {
+        fields.push(`${cyan('country')}  ${customer.country}`)
+      }
+      if (customer.userId) {
+        fields.push(`${cyan('userId')}  ${customer.userId}`)
+      }
+      if (customer.websiteId) {
+        fields.push(`${cyan('websiteId')}  ${customer.websiteId}`)
+      }
+      if (customer.organizationId) {
+        fields.push(`${cyan('organizationId')}  ${customer.organizationId}`)
+      }
+      if (customer.creationTime) {
+        fields.push(`${cyan('created')}  ${customer.creationTime}`)
+      }
+      if (customer.lastEditTime) {
+        fields.push(`${cyan('edited')}   ${customer.lastEditTime}`)
+      }
 
       if (fields.length > 0) {
         fields.forEach(line => console.log(line))
@@ -173,4 +200,4 @@ function customersCommand() {
   return command
 }
 
-module.exports = customersCommand
+export default customersCommand

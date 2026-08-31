@@ -1,14 +1,15 @@
 /* Copyright 2025 Supovia LLC */
-const { inspect } = require('node:util')
-const commander = require('commander')
-const {
-  printJson,
-  withJson,
-  fail,
-} = require('@monorepool/agentfirst/output.js')
-const ensureAuth = require('./ensureAuth.js')
-const getConfig = require('./getConfig.js')
-const getMessages = require('@supovia/client/getMessages.js').default
+import fs from 'node:fs'
+import { inspect } from 'node:util'
+
+import { fail, printJson, withJson } from '@monorepool/agentfirst/output.js'
+import addMessage from '@supovia/client/addMessage.js'
+import getMessages from '@supovia/client/getMessages.js'
+import commander from 'commander'
+import inquirer from 'inquirer'
+
+import ensureAuth from './ensureAuth.js'
+import getConfig from './getConfig.js'
 
 function messagesCommand() {
   const command = new commander.Command('messages')
@@ -36,9 +37,15 @@ function messagesCommand() {
         sortDirection: 'DESC',
         limit: options.limit || 10,
       }
-      if (websiteId) parameters.websiteId = websiteId
-      if (options.conversationId) parameters.conversationId = options.conversationId
-      if (options.key) parameters.key = options.key
+      if (websiteId) {
+        parameters.websiteId = websiteId
+      }
+      if (options.conversationId) {
+        parameters.conversationId = options.conversationId
+      }
+      if (options.key) {
+        parameters.key = options.key
+      }
 
       const messages = await getMessages(parameters)
 
@@ -79,7 +86,9 @@ function messagesCommand() {
         const config = getConfig()
         const websiteId = options.websiteId || config?.websiteId
         const parameters = { _id: messageId }
-        if (websiteId) parameters.websiteId = websiteId
+        if (websiteId) {
+          parameters.websiteId = websiteId
+        }
         const messages = await getMessages(parameters)
 
         if (messages.length > 0) {
@@ -101,9 +110,15 @@ function messagesCommand() {
           sortDirection: 'DESC',
           limit: options.limit || 10,
         }
-        if (websiteId) parameters.websiteId = websiteId
-        if (options.conversationId) parameters.conversationId = options.conversationId
-        if (options.key) parameters.key = options.key
+        if (websiteId) {
+          parameters.websiteId = websiteId
+        }
+        if (options.conversationId) {
+          parameters.conversationId = options.conversationId
+        }
+        if (options.key) {
+          parameters.key = options.key
+        }
         const messages = await getMessages(parameters)
         if (json) {
           printJson(messages)
@@ -129,7 +144,9 @@ function messagesCommand() {
       const config = getConfig()
       const websiteId = config?.websiteId
       const parameters = { _id: messageId }
-      if (websiteId) parameters.websiteId = websiteId
+      if (websiteId) {
+        parameters.websiteId = websiteId
+      }
       const messages = await getMessages(parameters)
 
       if (messages.length === 0) {
@@ -184,15 +201,25 @@ function messagesCommand() {
       }
 
       if (msg.action) {
-        console.log(`${dim(`action: ${msg.action.name}(${JSON.stringify(msg.action.arguments)})`)}`)
+        console.log(
+          `${dim(`action: ${msg.action.name}(${JSON.stringify(msg.action.arguments)})`)}`,
+        )
         console.log()
       }
 
       const footer = []
-      if (msg.conversationId) footer.push(`${cyan('conversationId')}  ${msg.conversationId}`)
-      if (msg.creationTime) footer.push(`${cyan('created')}  ${msg.creationTime}`)
-      if (msg.lastEditTime) footer.push(`${cyan('edited')}   ${msg.lastEditTime}`)
-      if (msg.type && msg.type !== 'text') footer.push(`${cyan('type')}  ${msg.type}`)
+      if (msg.conversationId) {
+        footer.push(`${cyan('conversationId')}  ${msg.conversationId}`)
+      }
+      if (msg.creationTime) {
+        footer.push(`${cyan('created')}  ${msg.creationTime}`)
+      }
+      if (msg.lastEditTime) {
+        footer.push(`${cyan('edited')}   ${msg.lastEditTime}`)
+      }
+      if (msg.type && msg.type !== 'text') {
+        footer.push(`${cyan('type')}  ${msg.type}`)
+      }
 
       if (footer.length > 0) {
         console.log(dim('---'))
@@ -205,7 +232,76 @@ function messagesCommand() {
     }
   })
 
+  // supovia messages send
+  withJson(
+    command
+      .command('send')
+      .description('send an operator reply into an existing conversation')
+      .option('--conversationId [conversationId]', 'conversation id')
+      .option('--content [content]', 'message content (inline string)')
+      .option(
+        '--content-file <path>',
+        'path to a file whose contents become the message content',
+      ),
+  ).action(async options => {
+    const { json } = options
+    try {
+      await ensureAuth()
+
+      // A reply can be multi-line, so `--content` on a shell is hostile for
+      // anything beyond a short line; docsCommand.js's `add` reads bodies the
+      // same way.
+      const contentFromFile = options.contentFile
+        ? fs.readFileSync(options.contentFile, 'utf8')
+        : undefined
+
+      const answers = await inquirer.prompt([
+        {
+          name: 'conversationId',
+          message: 'Conversation ID:',
+          when: !options.conversationId,
+        },
+        {
+          name: 'content',
+          message: 'Message content:',
+          when: contentFromFile === undefined && !options.content,
+        },
+      ])
+
+      const conversationId = options.conversationId || answers.conversationId
+      const content = contentFromFile ?? (options.content || answers.content)
+
+      // `from: 'operator'` is what marks this as a support-team reply rather
+      // than simulating a customer message — supovia/api's messagesHandler.js
+      // only lets an AUTHENTICATED caller (which ensureAuth() above requires)
+      // set it; an anonymous request is forced to 'customer' regardless of
+      // what it sends. Sending twice sends twice — there is no idempotency
+      // key — so confirm the conversationId and exact text before running
+      // this for real.
+      const message = await addMessage({
+        conversationId,
+        content,
+        from: 'operator',
+      })
+
+      if (json) {
+        printJson({
+          ok: true,
+          id: message._id,
+          conversationId: message.conversationId,
+          creationTime: message.creationTime,
+        })
+      } else {
+        console.log('Message sent successfully')
+        console.log(`ID: ${message._id}`)
+        console.log(`Conversation: ${message.conversationId}`)
+      }
+    } catch (error) {
+      fail(error, { json })
+    }
+  })
+
   return command
 }
 
-module.exports = messagesCommand
+export default messagesCommand
