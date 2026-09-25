@@ -117,14 +117,17 @@ supovia schema   # the whole command tree as JSON
 
 ```bash
 supovia websites list                        # all websites: name, domain, id
-supovia websites get <websiteIdOrName>       # raw record for one website
-supovia websites read <websiteIdOrName>      # formatted view
+supovia websites get <websiteIdOrVanityId>       # raw record for one website
+supovia websites read <websiteIdOrVanityId>      # formatted view
 supovia websites add --name "Acme" --organizationId <orgId>
-supovia websites update <websiteIdOrName...> --domain acme.com
+supovia websites update <websiteIdOrVanityId...> --domain acme.com
+supovia websites update <websiteIdOrVanityId...> --color-primary '#386FA4' --color-secondary '#FFD60A'
 ```
 
-`update` accepts one or more website ids or names and any of `--domain`,
-`--whitelabelDocsUrl`, `--iframeUrl`, `--defaultLocale`,
+`get`, `read`, and `update` use a Website id or public vanity id; the display
+name is not a route key. `update` accepts one or more such identifiers and any of `--domain`,
+`--whitelabelDocsUrl`, `--iframeUrl`, `--defaultLocale`, `--vanity-id`,
+`--logo`, `--color-primary`, `--color-secondary`,
 `--customerAgentEnabled [true|false]`, and `--customerAgentPrompt`. The same
 change is applied to every website named, so double-check the target list.
 `add` requires both `--name` and `--organizationId`.

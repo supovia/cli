@@ -4,12 +4,38 @@ import { inspect } from 'node:util'
 
 import { fail, printJson, withJson } from '@monorepool/agentfirst/output.js'
 import addMessage from '@supovia/client/addMessage.js'
+import getConversation from '@supovia/client/getConversation.js'
+import getMessage from '@supovia/client/getMessage.js'
 import getMessages from '@supovia/client/getMessages.js'
 import commander from 'commander'
 import inquirer from 'inquirer'
 
 import ensureAuth from './ensureAuth.js'
 import getConfig from './getConfig.js'
+
+async function resolveWebsiteId({ conversationId, websiteId }) {
+  if (websiteId || !conversationId) {
+    return websiteId
+  }
+
+  const conversation = await getConversation(conversationId)
+
+  if (!conversation) {
+    throw new Error('Conversation not found')
+  }
+
+  return conversation.websiteId
+}
+
+async function getScopedMessage(messageId, websiteId) {
+  const message = await getMessage(messageId)
+
+  if (websiteId && message?.websiteId !== websiteId) {
+    return undefined
+  }
+
+  return message
+}
 
 function messagesCommand() {
   const command = new commander.Command('messages')
@@ -30,7 +56,10 @@ function messagesCommand() {
       await ensureAuth()
 
       const config = getConfig()
-      const websiteId = options.websiteId || config?.websiteId
+      const websiteId = await resolveWebsiteId({
+        conversationId: options.conversationId,
+        websiteId: options.websiteId || config?.websiteId,
+      })
 
       const parameters = {
         sortField: 'lastEditTime',
@@ -85,17 +114,13 @@ function messagesCommand() {
       if (messageId) {
         const config = getConfig()
         const websiteId = options.websiteId || config?.websiteId
-        const parameters = { _id: messageId }
-        if (websiteId) {
-          parameters.websiteId = websiteId
-        }
-        const messages = await getMessages(parameters)
+        const message = await getScopedMessage(messageId, websiteId)
 
-        if (messages.length > 0) {
+        if (message) {
           if (json) {
-            printJson(messages[0])
+            printJson(message)
           } else {
-            console.log(inspect(messages[0], { colors: true, depth: null }))
+            console.log(inspect(message, { colors: true, depth: null }))
           }
         } else if (json) {
           fail(new Error('Message not found'), { json })
@@ -104,7 +129,10 @@ function messagesCommand() {
         }
       } else {
         const config = getConfig()
-        const websiteId = options.websiteId || config?.websiteId
+        const websiteId = await resolveWebsiteId({
+          conversationId: options.conversationId,
+          websiteId: options.websiteId || config?.websiteId,
+        })
         const parameters = {
           sortField: 'lastEditTime',
           sortDirection: 'DESC',
@@ -143,13 +171,9 @@ function messagesCommand() {
 
       const config = getConfig()
       const websiteId = config?.websiteId
-      const parameters = { _id: messageId }
-      if (websiteId) {
-        parameters.websiteId = websiteId
-      }
-      const messages = await getMessages(parameters)
+      const msg = await getScopedMessage(messageId, websiteId)
 
-      if (messages.length === 0) {
+      if (!msg) {
         if (json) {
           fail(new Error('Message not found'), { json })
         } else {
@@ -158,8 +182,6 @@ function messagesCommand() {
 
         return
       }
-
-      const msg = messages[0]
 
       if (json) {
         printJson(msg)

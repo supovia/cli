@@ -154,6 +154,8 @@ function conversationsCommand() {
 
       const messages = await getMessages({
         conversationId,
+        websiteId: conversation.websiteId,
+        sortField: 'creationTime',
         sortDirection: 'ASC',
       })
 
@@ -190,8 +192,9 @@ function conversationsCommand() {
         console.log(dim('No messages'))
       } else {
         messages.forEach(msg => {
-          const time = msg.creationTime
-            ? new Date(msg.creationTime).toLocaleString()
+          const timelineTime = msg.serverCreationTime || msg.creationTime
+          const time = timelineTime
+            ? new Date(timelineTime).toLocaleString()
             : ''
 
           let label

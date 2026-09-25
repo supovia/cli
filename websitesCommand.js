@@ -41,20 +41,20 @@ function websitesCommand() {
     },
   )
 
-  // supovia websites get [websiteIdOrName]
+  // supovia websites get [websiteIdOrVanityId]
   withJson(
     command
-      .command('get [websiteIdOrName]')
+      .command('get [websiteIdOrVanityId]')
       .description(
-        'get websites (raw JSON), or a single website by id or name',
+        'get websites (raw JSON), or a single website by id or vanity id',
       ),
-  ).action(async (websiteIdOrName, options) => {
+  ).action(async (websiteIdOrVanityId, options) => {
     const { json } = options
     try {
       await ensureAuth()
 
-      if (websiteIdOrName) {
-        const website = await getWebsite(websiteIdOrName)
+      if (websiteIdOrVanityId) {
+        const website = await getWebsite(websiteIdOrVanityId)
 
         if (website) {
           if (json) {
@@ -80,17 +80,17 @@ function websitesCommand() {
     }
   })
 
-  // supovia websites read <websiteIdOrName>
+  // supovia websites read <websiteIdOrVanityId>
   withJson(
     command
-      .command('read <websiteIdOrName>')
+      .command('read <websiteIdOrVanityId>')
       .description('read a website formatted for the terminal'),
-  ).action(async (websiteIdOrName, options) => {
+  ).action(async (websiteIdOrVanityId, options) => {
     const { json } = options
     try {
       await ensureAuth()
 
-      const website = await getWebsite(websiteIdOrName)
+      const website = await getWebsite(websiteIdOrVanityId)
 
       if (!website) {
         if (json) {
@@ -126,13 +126,13 @@ function websitesCommand() {
       if (website.organizationId) {
         fields.push(`${cyan('organizationId')}  ${website.organizationId}`)
       }
+      if (website.vanityId) {
+        fields.push(`${cyan('vanityId')}  ${website.vanityId}`)
+      }
       if (website.domain) {
         fields.push(`${cyan('domain')}  ${website.domain}`)
       }
-      const customerAgentEnabled =
-        website.customerAgentEnabled ?? website.agentEnabled
-      const customerAgentPrompt =
-        website.customerAgentPrompt ?? website.agentPrompt
+      const { customerAgentEnabled, customerAgentPrompt } = website
       if (customerAgentEnabled != null) {
         fields.push(`${cyan('customerAgentEnabled')}  ${customerAgentEnabled}`)
       }
@@ -184,10 +184,10 @@ function websitesCommand() {
     }
   })
 
-  // supovia websites update <websiteIdOrName...> --domain <domain> ...
+  // supovia websites update <websiteIdOrVanityId...> --domain <domain> ...
   withJson(
     command
-      .command('update <websiteIdsOrNames...>')
+      .command('update <websiteIdsOrVanityIds...>')
       .description('update one or more websites')
       .option('--domain <domain>', 'set the apex domain (e.g. example.com)')
       .option(
@@ -196,6 +196,10 @@ function websitesCommand() {
       )
       .option('--iframeUrl <url>', 'set the iframe URL')
       .option('--defaultLocale <locale>', 'set the default locale (e.g. en)')
+      .option('--vanity-id <vanityId>', 'set the public vanity id')
+      .option('--logo <url>', 'set the website logo URL')
+      .option('--color-primary <hex>', 'set the primary brand color')
+      .option('--color-secondary <hex>', 'set the secondary brand color')
       .option(
         '--customerAgentEnabled [value]',
         'enable/disable the customer support agent (true/false)',
@@ -204,7 +208,7 @@ function websitesCommand() {
         '--customerAgentPrompt <prompt>',
         'set the customer support agent prompt',
       ),
-  ).action(async (websiteIdsOrNames, options) => {
+  ).action(async (websiteIdsOrVanityIds, options) => {
     const { json } = options
     try {
       await ensureAuth()
@@ -223,6 +227,18 @@ function websitesCommand() {
       if (options.defaultLocale !== undefined) {
         updates.defaultLocale = options.defaultLocale
       }
+      if (options.vanityId !== undefined) {
+        updates.vanityId = options.vanityId
+      }
+      if (options.logo !== undefined) {
+        updates.logo = options.logo
+      }
+      if (options.colorPrimary !== undefined) {
+        updates.colorPrimary = options.colorPrimary
+      }
+      if (options.colorSecondary !== undefined) {
+        updates.colorSecondary = options.colorSecondary
+      }
       if (options.customerAgentEnabled !== undefined) {
         updates.customerAgentEnabled = options.customerAgentEnabled !== 'false'
       }
@@ -232,7 +248,7 @@ function websitesCommand() {
 
       if (Object.keys(updates).length === 0) {
         const message =
-          'No updates specified. Use --domain, --whitelabelDocsUrl, --iframeUrl, --defaultLocale, --customerAgentEnabled, or --customerAgentPrompt.'
+          'No updates specified. Use --domain, --whitelabelDocsUrl, --iframeUrl, --defaultLocale, --vanity-id, --logo, --color-primary, --color-secondary, --customerAgentEnabled, or --customerAgentPrompt.'
 
         if (json) {
           fail(new Error(message), { json })
@@ -246,31 +262,34 @@ function websitesCommand() {
       const updated = []
       const notFound = []
 
-      await websiteIdsOrNames.reduce(async (previous, websiteIdOrName) => {
-        await previous
-        const website = await getWebsite(websiteIdOrName)
+      await websiteIdsOrVanityIds.reduce(
+        async (previous, websiteIdOrVanityId) => {
+          await previous
+          const website = await getWebsite(websiteIdOrVanityId)
 
-        if (!website) {
-          notFound.push(websiteIdOrName)
+          if (!website) {
+            notFound.push(websiteIdOrVanityId)
 
-          if (!json) {
-            console.log(`Website ${websiteIdOrName} not found`)
+            if (!json) {
+              console.log(`Website ${websiteIdOrVanityId} not found`)
+            }
+
+            return
           }
 
-          return
-        }
+          await updateWebsite({ ...website, ...updates })
+          updated.push(website._id)
 
-        await updateWebsite({ ...website, ...updates })
-        updated.push(website._id)
-
-        if (!json) {
-          const name = website.name || website.domain || website._id
-          const changes = Object.entries(updates)
-            .map(([key, value]) => `${key}=${value}`)
-            .join(', ')
-          console.log(`Updated ${name} (${website._id}): ${changes}`)
-        }
-      }, Promise.resolve())
+          if (!json) {
+            const name = website.name || website.domain || website._id
+            const changes = Object.entries(updates)
+              .map(([key, value]) => `${key}=${value}`)
+              .join(', ')
+            console.log(`Updated ${name} (${website._id}): ${changes}`)
+          }
+        },
+        Promise.resolve(),
+      )
 
       if (json) {
         printJson({ ok: notFound.length === 0, updated, notFound })
