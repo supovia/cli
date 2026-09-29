@@ -1,6 +1,6 @@
 {
   "name": "supovia",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": false,
   "description": "Customer-support CLI for Supovia — help-center documents, support conversations and messages, customers, and websites",
   "license": "Apache-2.0",

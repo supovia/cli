@@ -132,6 +132,20 @@ name is not a route key. `update` accepts one or more such identifiers and any o
 change is applied to every website named, so double-check the target list.
 `add` requires both `--name` and `--organizationId`.
 
+`--iframeUrl` is the page the operator dashboard embeds beside a conversation.
+It is a template: `{customer.<field>}` (`_id`, `userId`, `email`, `phone`, …),
+`{customer.metadata.<key>}`, `{conversation._id}`, `{conversation.pageUrl}`
+(the newest page of the website's own `--domain` the customer was on or linked
+to) and `{conversation.pageUrls}` (all of them, newest first), with
+`{customer.userId|email|phone}` taking the first that has a value. Values are
+URL-encoded and the host must be literal. A missing value in the path hides the
+embed; a query parameter whose value is missing is dropped, and a list
+placeholder repeats its parameter:
+
+```bash
+supovia websites update acme --iframeUrl 'https://crm.acme.com/support?url={conversation.pageUrls}&email={customer.email}'
+```
+
 ### Documents (help center)
 
 ```bash

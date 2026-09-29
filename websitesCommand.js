@@ -277,7 +277,14 @@ function websitesCommand() {
             return
           }
 
-          await updateWebsite({ ...website, ...updates })
+          // Dashboards keep a cached copy of each Website and replace it only
+          // with one whose lastEditTime is newer, so an edit that kept the old
+          // time would never reach an operator who already has it loaded.
+          await updateWebsite({
+            ...website,
+            ...updates,
+            lastEditTime: new Date().toISOString(),
+          })
           updated.push(website._id)
 
           if (!json) {

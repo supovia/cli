@@ -21,26 +21,13 @@ import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const bundle = new URL('../dist/index.js', import.meta.url)
-const usingBundle = existsSync(fileURLToPath(bundle))
-const target = usingBundle ? bundle : new URL('../index.js', import.meta.url)
+const target = existsSync(fileURLToPath(bundle))
+  ? bundle
+  : new URL('../index.js', import.meta.url)
 
-// The source fallback imports the full monorepo @monorepool/env URL resolver
-// (cliGetUrl.js's build-time replacement never runs), which resolves an
-// unset SUPOVIA_API_URL/SUPOVIA_APP_URL to this developer's local dev ports —
-// the same behavior every product's own dev server relies on. That is right
-// for `node index.js`, run deliberately while developing the CLI against a
-// local API. It is wrong for THIS launcher: `supovia <command>` is the
-// documented interface for querying supovia.com, dist/ is gitignored, and a
-// fresh git worktree never has it built. Without this, every such worktree
-// silently talks to a local API instead — refused, most likely dev-server-not
-// -running connections that surface as an opaque `fetch failed` with no hint
-// that dist/ was missing. Default (never override an explicit choice) to the
-// same production URLs cliGetUrl.js would have compiled in.
-if (!usingBundle) {
-  process.env.SUPOVIA_API_URL ||= 'https://api.supovia.com'
-  process.env.SUPOVIA_APP_URL ||= 'https://app.supovia.com'
-}
-
+// Both targets default to the production API on their own: the bundle through
+// its build-time cliGetUrl.js, the source entrypoint by setting SUPOVIA_API_URL
+// and SUPOVIA_APP_URL when it runs as the program.
 process.argv[1] = fileURLToPath(target)
 
 await import(target.href)

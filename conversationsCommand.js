@@ -297,7 +297,14 @@ function conversationsCommand() {
           return
         }
 
-        await updateConversation({ ...conversation, ...updates })
+        // A fresh lastEditTime, as when the dashboard resolves or reopens a
+        // conversation: dashboards replace a cached conversation only with a
+        // newer one, so a change keeping the old time never reaches them.
+        await updateConversation({
+          ...conversation,
+          ...updates,
+          lastEditTime: new Date().toISOString(),
+        })
         updated.push(conversationId)
 
         if (!json) {
@@ -348,7 +355,11 @@ function conversationsCommand() {
           return
         }
 
-        await updateConversation({ ...conversation, resolved: true })
+        await updateConversation({
+          ...conversation,
+          resolved: true,
+          lastEditTime: new Date().toISOString(),
+        })
         updated.push(conversationId)
 
         if (!json) {
