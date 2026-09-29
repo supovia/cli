@@ -258,8 +258,14 @@ function messagesCommand() {
   withJson(
     command
       .command('send')
-      .description('send an operator reply into an existing conversation')
+      .description(
+        'send an operator reply or internal note into an existing conversation',
+      )
       .option('--conversationId [conversationId]', 'conversation id')
+      .option(
+        '--note',
+        'send a private internal note; mention @supovia to ask the agent',
+      )
       .option('--content [content]', 'message content (inline string)')
       .option(
         '--content-file <path>',
@@ -304,6 +310,7 @@ function messagesCommand() {
         conversationId,
         content,
         from: 'operator',
+        ...(options.note ? { hasNote: true } : {}),
       })
 
       if (json) {
@@ -312,9 +319,14 @@ function messagesCommand() {
           id: message._id,
           conversationId: message.conversationId,
           creationTime: message.creationTime,
+          hasNote: message.hasNote === true,
         })
       } else {
-        console.log('Message sent successfully')
+        console.log(
+          options.note
+            ? 'Internal note sent successfully'
+            : 'Message sent successfully',
+        )
         console.log(`ID: ${message._id}`)
         console.log(`Conversation: ${message.conversationId}`)
       }

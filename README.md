@@ -172,8 +172,7 @@ supovia conversations resolve <conversationId...>                   # shorthand 
 ```
 
 `update` and `resolve` accept multiple ids and change shared support state —
-resolve only conversations you mean to. There is no delete, and the CLI
-cannot send a message to a customer.
+resolve only conversations you mean to. There is no conversation delete.
 
 ### Messages
 
@@ -181,10 +180,17 @@ cannot send a message to a customer.
 supovia messages list                        # newest messages (--websiteId, --conversationId, -k/--key, -n)
 supovia messages get <messageId>             # raw record
 supovia messages read <messageId>            # formatted message
+supovia messages send --conversationId <id> --content-file ./reply.md
+supovia messages send --conversationId <id> --note --content-file ./note.md
 ```
 
 For a whole thread prefer `supovia conversations read` — it orders the
 messages and labels the senders.
+
+`send` posts a public operator reply by default. `--note` posts a private
+internal note; mention `@supovia` in the note to ask the product agent to act.
+The agent answers privately unless explicitly asked to contact the customer.
+The JSON receipt reports `hasNote`. Sending twice creates two messages.
 
 ### Customers
 
